@@ -27,6 +27,14 @@ class CalculatorScreen(Screen):
             on_press=self.go_to_history
         )
         header_layout.add_widget(history_btn)
+
+        converter_btn = Button(
+            text="Converter",
+            size_hint_x=0.4,
+            on_press=self.go_to_converter
+        )
+        header_layout.add_widget(converter_btn)
+
         main_layout.add_widget(header_layout)
 
         self.result = TextInput(
@@ -97,6 +105,9 @@ class CalculatorScreen(Screen):
     def go_to_history(self, instance):
         self.manager.current = 'history'
 
+    def go_to_converter(self, instance):
+        self.manager.current = 'converter'
+
 
 class HistoryScreen(Screen):
     def __init__(self, **kwargs):
@@ -155,11 +166,122 @@ class HistoryScreen(Screen):
         self.manager.current = 'calculator'
 
 
+class ConverterScreen(Screen):
+    UNITS = ["°C(Celsius)", "°F(Fahrenheit)", "K(Kelvin)"]
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self.from_unit = "°C(Celsius)"
+        self.to_unit = "°F(Fahrenheit)"
+
+        main_layout = BoxLayout(orientation='vertical', padding=10, spacing=10)
+
+        header = BoxLayout(orientation='horizontal', size_hint_y=0.1)
+        back_btn = Button(text="< Kembali", size_hint_x=0.4, on_press=self.go_back)
+        title = Label(text="Konversi Suhu", font_size=18, bold=True)
+        header.add_widget(back_btn)
+        header.add_widget(title)
+        main_layout.add_widget(header)
+
+        self.input_value = TextInput(
+            font_size=32,
+            size_hint_y=0.2,
+            halign="right",
+            multiline=False,
+            input_filter='float',
+        )
+        self.input_value.bind(text=self.on_value_change)
+        main_layout.add_widget(self.input_value)
+
+        from_row = BoxLayout(orientation='horizontal', size_hint_y=0.15, spacing=5)
+        from_row.add_widget(Label(text="Dari:", size_hint_x=0.3))
+        self.from_label = Label(text=self.from_unit)
+        from_row.add_widget(self.from_label)
+        from_btn = Button(text="Ganti", size_hint_x=0.3, on_press=self.cycle_from_unit)
+        from_row.add_widget(from_btn)
+        main_layout.add_widget(from_row)
+
+        swap_btn = Button(text="Tukar", size_hint_y=0.12, on_press=self.swap_units)
+        main_layout.add_widget(swap_btn)
+
+        to_row = BoxLayout(orientation='horizontal', size_hint_y=0.15, spacing=5)
+        to_row.add_widget(Label(text="Ke:", size_hint_x=0.3))
+        self.to_label = Label(text=self.to_unit)
+        to_row.add_widget(self.to_label)
+        to_btn = Button(text="Ganti", size_hint_x=0.3, on_press=self.cycle_to_unit)
+        to_row.add_widget(to_btn)
+        main_layout.add_widget(to_row)
+
+        self.result_label = Label(
+            text="Hasil: -",
+            font_size=28,
+            bold=True,
+            size_hint_y=0.28,
+        )
+        main_layout.add_widget(self.result_label)
+
+        self.add_widget(main_layout)
+
+    def cycle_from_unit(self, instance):
+        idx = self.UNITS.index(self.from_unit)
+        self.from_unit = self.UNITS[(idx + 1) % len(self.UNITS)]
+        self.from_label.text = self.from_unit
+        self.convert()
+
+    def cycle_to_unit(self, instance):
+        idx = self.UNITS.index(self.to_unit)
+        self.to_unit = self.UNITS[(idx + 1) % len(self.UNITS)]
+        self.to_label.text = self.to_unit
+        self.convert()
+
+    def swap_units(self, instance):
+        self.from_unit, self.to_unit = self.to_unit, self.from_unit
+        self.from_label.text = self.from_unit
+        self.to_label.text = self.to_unit
+        self.convert()
+
+    def on_value_change(self, instance, value):
+        self.convert()
+
+    def convert(self):
+        raw = self.input_value.text.strip()
+        if not raw or raw in ("-", "."):
+            self.result_label.text = "Hasil: -"
+            return
+        try:
+            value = float(raw)
+        except ValueError:
+            self.result_label.text = "Hasil: ERROR!"
+            return
+
+
+        if self.from_unit == "Celsius":
+            celsius = value
+        elif self.from_unit == "Fahrenheit":
+            celsius = (value - 32) * 5 / 9
+        else: 
+            celsius = value - 273.15
+
+        if self.to_unit == "Celsius":
+            result = celsius
+        elif self.to_unit == "Fahrenheit":
+            result = celsius * 9 / 5 + 32
+        else:
+            result = celsius + 273.15
+
+        self.result_label.text = f"Hasil: {result:.2f} {self.to_unit}"
+
+    def go_back(self, instance):
+        self.manager.current = 'calculator'
+
+
 class CalculatorApp(App):
     def build(self):
         sm = ScreenManager()
         sm.add_widget(CalculatorScreen(name='calculator'))
         sm.add_widget(HistoryScreen(name='history'))
+        sm.add_widget(ConverterScreen(name='converter'))
         return sm
 
 if __name__ == "__main__":
