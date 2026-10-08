@@ -13,12 +13,12 @@ from kivy.properties import NumericProperty, StringProperty, BooleanProperty
 from kivy.metrics import dp
 from kivy.lang import Builder
 
-BG_DARK = (0.07, 0.09, 0.14, 1)        
-CARD_BG = (0.12, 0.15, 0.22, 1)        
-ACCENT_CYAN = (0.15, 0.85, 0.85, 1)    
-ACCENT_PURPLE = (0.55, 0.35, 0.95, 1)  
-ACCENT_PINK = (0.95, 0.30, 0.55, 1)    
-ACCENT_GREEN = (0.25, 0.85, 0.45, 1)   
+BG_DARK = (0.07, 0.09, 0.14, 1)
+CARD_BG = (0.12, 0.15, 0.22, 1)
+ACCENT_CYAN = (0.15, 0.85, 0.85, 1)
+ACCENT_PURPLE = (0.55, 0.35, 0.95, 1)
+ACCENT_PINK = (0.95, 0.30, 0.55, 1)
+ACCENT_GREEN = (0.25, 0.85, 0.45, 1)
 TEXT_LIGHT = (0.92, 0.94, 0.98, 1)
 TEXT_MUTED = (0.55, 0.60, 0.70, 1)
 
@@ -43,11 +43,6 @@ KV = """
             radius: [18,]
 """
 Builder.load_string(KV)
-
-
-class RoundedButtonBase(Button):
-    """Custom button dengan properti warna dinamis (dipakai lewat KV di atas)."""
-    pass
 
 
 class ColoredCard(BoxLayout):
@@ -115,6 +110,7 @@ class MenuScreen(Screen):
         self.manager.current = name
 
 
+# ------------------- Timer -------------------
 class TimerScreen(Screen):
     remaining = NumericProperty(0)
     running = BooleanProperty(False)
@@ -129,7 +125,7 @@ class TimerScreen(Screen):
         root = BoxLayout(orientation='vertical', padding=dp(24), spacing=dp(18))
 
         header = BoxLayout(size_hint=(1, 0.12))
-        back_btn = make_button('X', ACCENT_PURPLE)
+        back_btn = make_button('<', ACCENT_PURPLE)
         back_btn.size_hint = (0.2, 1)
         back_btn.bind(on_release=lambda x: self.go_back())
         title = Label(text='[b]Timer[/b]', markup=True, font_size='26sp', color=TEXT_LIGHT)
@@ -201,6 +197,9 @@ class TimerScreen(Screen):
                 if self.remaining <= 0:
                     self.status_label.text = 'Masukkan waktu terlebih dahulu!'
                     return
+                # Tampilkan waktu langsung & kembalikan warna normal
+                self.time_label.text = self._format(self.remaining)
+                self.time_label.color = ACCENT_CYAN
             self.running = True
             self.status_label.text = 'Sedang berjalan...'
             self._event = Clock.schedule_interval(self._tick, 1)
@@ -219,16 +218,17 @@ class TimerScreen(Screen):
         self.mm_input.text = ''
         self.ss_input.text = ''
         self.time_label.text = '00:00:00'
+        self.time_label.color = ACCENT_CYAN
         self.status_label.text = 'Atur waktu lalu tekan Mulai'
 
     def _tick(self, dt):
-        if self.remaining > 0:
-            self.remaining -= 1
-            self.time_label.text = self._format(self.remaining)
-        else:
+        self.remaining -= 1
+        self.time_label.text = self._format(self.remaining)
+        if self.remaining <= 0:
+            self.remaining = 0
             self.pause_timer()
             self.status_label.text = "Waktu habis!"
-            self.time_label.text = '00:00:00'
+            self.time_label.color = ACCENT_PINK  # tanda visual saat selesai
 
     @staticmethod
     def _format(total_seconds):
@@ -238,6 +238,7 @@ class TimerScreen(Screen):
         return f'{h:02d}:{m:02d}:{s:02d}'
 
 
+# ------------------- Stopwatch -------------------
 class StopwatchScreen(Screen):
     elapsed = NumericProperty(0.0)
     running = BooleanProperty(False)
@@ -252,7 +253,7 @@ class StopwatchScreen(Screen):
         root = BoxLayout(orientation='vertical', padding=dp(24), spacing=dp(16))
 
         header = BoxLayout(size_hint=(1, 0.12))
-        back_btn = make_button('X', ACCENT_CYAN)
+        back_btn = make_button('<', ACCENT_CYAN)
         back_btn.size_hint = (0.2, 1)
         back_btn.bind(on_release=lambda x: self.go_back())
         title = Label(text='[b]Stopwatch[/b]', markup=True, font_size='26sp', color=TEXT_LIGHT)
@@ -266,8 +267,9 @@ class StopwatchScreen(Screen):
         root.add_widget(display_card)
 
         btn_row = BoxLayout(size_hint=(1, 0.15), spacing=dp(12))
+        # Satu tombol yang berubah fungsi: MULAI / JEDA / LANJUT
         self.start_btn = make_button('MULAI', ACCENT_GREEN)
-        self.start_btn.bind(on_release=lambda x: self.start_stopwatch())
+        self.start_btn.bind(on_release=lambda x: self.toggle_stopwatch())
         self.lap_btn = make_button('LAP', ACCENT_PURPLE)
         self.lap_btn.bind(on_release=lambda x: self.add_lap())
         self.reset_btn = make_button('RESET', ACCENT_PINK)
@@ -288,21 +290,36 @@ class StopwatchScreen(Screen):
 
         self.add_widget(root)
 
+    def _set_start_btn(self, text, color):
+        """Ubah teks & warna tombol utama."""
+        self.start_btn.text = text
+        self.start_btn.btn_color = color
+        self.start_btn.btn_color_down = tuple(max(c - 0.15, 0) for c in color[:3]) + (1,)
+
     def go_back(self):
         self.pause_stopwatch()
         self.manager.transition = SlideTransition(direction='right')
         self.manager.current = 'menu'
 
+    def toggle_stopwatch(self):
+        if self.running:
+            self.pause_stopwatch()
+        else:
+            self.start_stopwatch()
+
     def start_stopwatch(self):
         if not self.running:
             self.running = True
             self._event = Clock.schedule_interval(self._tick, 0.1)
+            self._set_start_btn('JEDA', ACCENT_PINK)
 
     def pause_stopwatch(self):
         self.running = False
         if self._event:
             self._event.cancel()
             self._event = None
+        if self.elapsed > 0:
+            self._set_start_btn('LANJUT', ACCENT_GREEN)
 
     def reset_stopwatch(self):
         self.pause_stopwatch()
@@ -310,6 +327,7 @@ class StopwatchScreen(Screen):
         self.time_label.text = '00:00:00.0'
         self.lap_list.clear_widgets()
         self.lap_count = 0
+        self._set_start_btn('MULAI', ACCENT_GREEN)
 
     def add_lap(self):
         if self.running:
@@ -330,6 +348,7 @@ class StopwatchScreen(Screen):
         s = int(total_seconds % 60)
         ms = int((total_seconds * 10) % 10)
         return f'{h:02d}:{m:02d}:{s:02d}.{ms}'
+
 
 class TimeStudioApp(App):
     def build(self):
